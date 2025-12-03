@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Filtrar PDFs e baixar ZIP</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  </head>
+  <body>
+    <h2>Filtrar páginas 3, 5 e 6 de vários PDFs</h2>
+
+    <input type="file" id="pdfInput" accept="application/pdf" multiple />
+    <button onclick="processarPDFs()">Processar PDFs</button>
+
+    <script>
+      async function processarPDFs() {
+        const input = document.getElementById("pdfInput");
+        if (!input.files.length) {
+          alert("Selecione pelo menos um PDF.");
+          return;
+        }
+
+        const zip = new JSZip();
+
+        for (const file of input.files) {
+          const arrayBuffer = await file.arrayBuffer();
+
+          const pdfOriginal = await PDFLib.PDFDocument.load(arrayBuffer);
+          const pdfNovo = await PDFLib.PDFDocument.create();
+
+          const paginasDesejadas = [2, 4, 5];
+          // (Lembrando: páginas começam em 0 → 3 = index 2, 5 = index 4, 6 = index 5)
+
+          for (const index of paginasDesejadas) {
+            if (index < pdfOriginal.getPageCount()) {
+              const [pagina] = await pdfNovo.copyPages(pdfOriginal, [index]);
+              pdfNovo.addPage(pagina);
+            }
+          }
+
+          const pdfBytes = await pdfNovo.save();
+
+          // adiciona o PDF ao ZIP
+          zip.file(file.name, pdfBytes);
+        }
+
+        // gerar zip final
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        // download do zip
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "pdfs_filtrados.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    </script>
+  </body>
+</html>
