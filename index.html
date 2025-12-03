@@ -2,58 +2,143 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Filtrar PDFs e baixar ZIP</title>
+    <title>Filtro de PDFs</title>
+
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PDF-LIB -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <!-- JSZip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   </head>
-  <body>
-    <h2>Filtrar páginas 3, 5 e 6 de vários PDFs</h2>
 
-    <input type="file" id="pdfInput" accept="application/pdf" multiple />
-    <button onclick="processarPDFs()">Processar PDFs</button>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-xl rounded-2xl p-10 w-full max-w-xl">
+      <h1 class="text-3xl font-bold text-gray-800 text-center mb-6">
+        Filtrar Páginas de PDFs
+      </h1>
+
+      <p class="text-gray-600 text-center mb-8">
+        Selecione os PDFs e escolha quais páginas deseja manter.
+      </p>
+
+      <!-- Seleção de opções -->
+      <div class="space-y-4 mb-6">
+        <label
+          class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-gray-50"
+        >
+          <input
+            type="radio"
+            name="pagesOption"
+            value="1"
+            class="h-5 w-5"
+            checked
+          />
+          <span class="text-gray-700 font-medium">Manter páginas 1 e 2</span>
+        </label>
+
+        <label
+          class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-gray-50"
+        >
+          <input type="radio" name="pagesOption" value="2" class="h-5 w-5" />
+          <span class="text-gray-700 font-medium">Manter páginas 2, 4 e 5</span>
+        </label>
+
+        <label
+          class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-gray-50"
+        >
+          <input type="radio" name="pagesOption" value="3" class="h-5 w-5" />
+          <span class="text-gray-700 font-medium">Manter páginas 2, 5 e 6</span>
+        </label>
+      </div>
+
+      <!-- Upload -->
+      <div class="mb-6">
+        <label class="block text-gray-700 font-medium mb-2"
+          >Selecione os arquivos PDF</label
+        >
+        <input
+          type="file"
+          id="pdfInput"
+          accept="application/pdf"
+          multiple
+          class="w-full border border-gray-300 p-3 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100"
+        />
+      </div>
+
+      <!-- Botão -->
+      <button
+        onclick="processarPDFs()"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
+      >
+        Processar PDFs
+      </button>
+
+      <!-- Status -->
+      <p id="status" class="text-center text-gray-600 mt-5"></p>
+    </div>
 
     <script>
+      function obterPaginasSelecionadas() {
+        const option = document.querySelector(
+          "input[name='pagesOption']:checked"
+        ).value;
+
+        switch (option) {
+          case "1":
+            return [0, 1];
+          case "2":
+            return [1, 3, 4];
+          case "3":
+            return [1, 4, 5];
+          default:
+            return [];
+        }
+      }
+
       async function processarPDFs() {
+        const status = document.getElementById("status");
         const input = document.getElementById("pdfInput");
+
         if (!input.files.length) {
           alert("Selecione pelo menos um PDF.");
           return;
         }
 
+        const paginasDesejadas = obterPaginasSelecionadas();
         const zip = new JSZip();
+
+        status.textContent = "Processando arquivos... Aguarde.";
 
         for (const file of input.files) {
           const arrayBuffer = await file.arrayBuffer();
-
           const pdfOriginal = await PDFLib.PDFDocument.load(arrayBuffer);
           const pdfNovo = await PDFLib.PDFDocument.create();
 
-          const paginasDesejadas = [2, 4, 5];
-          // (Lembrando: páginas começam em 0 → 3 = index 2, 5 = index 4, 6 = index 5)
-
-          for (const index of paginasDesejadas) {
-            if (index < pdfOriginal.getPageCount()) {
-              const [pagina] = await pdfNovo.copyPages(pdfOriginal, [index]);
+          for (const paginaIndex of paginasDesejadas) {
+            if (paginaIndex < pdfOriginal.getPageCount()) {
+              const [pagina] = await pdfNovo.copyPages(pdfOriginal, [
+                paginaIndex,
+              ]);
               pdfNovo.addPage(pagina);
             }
           }
 
           const pdfBytes = await pdfNovo.save();
-
-          // adiciona o PDF ao ZIP
           zip.file(file.name, pdfBytes);
         }
 
-        // gerar zip final
         const zipBlob = await zip.generateAsync({ type: "blob" });
 
-        // download do zip
         const url = URL.createObjectURL(zipBlob);
         const a = document.createElement("a");
         a.href = url;
         a.download = "pdfs_filtrados.zip";
         a.click();
         URL.revokeObjectURL(url);
+
+        status.textContent = "Concluído! O download do ZIP começou.";
       }
     </script>
   </body>
